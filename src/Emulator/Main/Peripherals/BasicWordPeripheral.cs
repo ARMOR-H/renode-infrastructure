@@ -72,27 +72,27 @@ namespace Antmicro.Renode.Peripherals
 
         public static WordRegister Define16(this System.Enum o, IProvidesRegisterCollection<WordRegisterCollection> p, ushort resetValue = 0, bool softResettable = true, string name = "")
         {
-            return Define(o, p, resetValue, softResettable);
+            return Define(o, p, resetValue, softResettable, name);
         }
 
         public static WordRegister Define(this System.Enum o, WordRegisterCollection c, ushort resetValue = 0, bool softResettable = true, string name = "")
         {
-            return c.DefineRegister(Convert.ToInt64(o), resetValue, softResettable);
+            return c.DefineRegister(Convert.ToInt64(o), resetValue, softResettable, String.IsNullOrEmpty(name) ? o.ToString() : name);
         }
 
         public static WordRegister Define(this System.Enum o, IProvidesRegisterCollection<WordRegisterCollection> p, ushort resetValue = 0, bool softResettable = true, string name = "")
         {
-            return p.RegistersCollection.DefineRegister(Convert.ToInt64(o), resetValue, softResettable);
+            return p.RegistersCollection.DefineRegister(Convert.ToInt64(o), resetValue, softResettable, String.IsNullOrEmpty(name) ? o.ToString() : name);
         }
 
         public static WordRegister DefineConditional(this System.Enum o, WordRegisterCollection c, Func<bool> condition, ushort resetValue = 0, bool softResettable = true, string name = "")
         {
-            return c.DefineConditionalRegister(Convert.ToInt64(o), condition, resetValue, softResettable);
+            return c.DefineConditionalRegister(Convert.ToInt64(o), condition, resetValue, softResettable, String.IsNullOrEmpty(name) ? o.ToString() : name);
         }
 
         public static WordRegister DefineConditional(this System.Enum o, IProvidesRegisterCollection<WordRegisterCollection> p, Func<bool> condition, ushort resetValue = 0, bool softResettable = true, string name = "")
         {
-            return o.DefineConditional(p.RegistersCollection, condition, resetValue, softResettable);
+            return o.DefineConditional(p.RegistersCollection, condition, resetValue, softResettable, name);
         }
 
         public static void DefineManyConditional(this System.Enum o, WordRegisterCollection c, uint count, Func<int, bool> condition, Action<WordRegister, int> setup, uint stepInBytes = 1, ushort resetValue = 0, string name = "")

@@ -11,6 +11,8 @@ using System.Linq;
 
 using Antmicro.Renode.Logging;
 using Antmicro.Renode.Peripherals;
+using Antmicro.Renode.Peripherals.Bus;
+using Antmicro.Renode.Peripherals.CPU;
 using Antmicro.Renode.Utilities;
 
 namespace Antmicro.Renode.Core.Structure.Registers
@@ -31,12 +33,12 @@ namespace Antmicro.Renode.Core.Structure.Registers
 #pragma warning restore IDE0060
         {
             //null because parent is used for logging purposes only - this will never happen in this case.
-            var register = new QuadWordRegister(null, resetValue, softResettable);
+            var register = new QuadWordRegister(null, resetValue, softResettable, name);
             register.DefineValueField(0, register.RegisterWidth);
             return register;
         }
 
-        public QuadWordRegister(IPeripheral parent, ulong resetValue = 0, bool softResettable = true) : base(parent, resetValue, softResettable, QuadWordWidth)
+        public QuadWordRegister(IPeripheral parent, ulong resetValue = 0, bool softResettable = true, String name = null) : base(parent, resetValue, softResettable, QuadWordWidth, name)
         {
         }
 
@@ -143,12 +145,12 @@ namespace Antmicro.Renode.Core.Structure.Registers
 #pragma warning restore IDE0060
         {
             //null because parent is used for logging purposes only - this will never happen in this case.
-            var register = new DoubleWordRegister(null, resetValue, softResettable);
+            var register = new DoubleWordRegister(null, resetValue, softResettable, name);
             register.DefineValueField(0, register.RegisterWidth);
             return register;
         }
 
-        public DoubleWordRegister(IPeripheral parent, ulong resetValue = 0, bool softResettable = true) : base(parent, resetValue, softResettable, DoubleWordWidth)
+        public DoubleWordRegister(IPeripheral parent, ulong resetValue = 0, bool softResettable = true, String name = null) : base(parent, resetValue, softResettable, DoubleWordWidth, name)
         {
         }
 
@@ -255,12 +257,12 @@ namespace Antmicro.Renode.Core.Structure.Registers
 #pragma warning restore IDE0060
         {
             //null because parent is used for logging purposes only - this will never happen in this case.
-            var register = new WordRegister(null, resetValue, softResettable);
+            var register = new WordRegister(null, resetValue, softResettable, name);
             register.DefineValueField(0, register.RegisterWidth);
             return register;
         }
 
-        public WordRegister(IPeripheral parent, ulong resetValue = 0, bool softResettable = true) : base(parent, resetValue, softResettable, WordWidth)
+        public WordRegister(IPeripheral parent, ulong resetValue = 0, bool softResettable = true, String name = null) : base(parent, resetValue, softResettable, WordWidth, name)
         {
         }
 
@@ -367,12 +369,12 @@ namespace Antmicro.Renode.Core.Structure.Registers
 #pragma warning restore IDE0060
         {
             //null because parent is used for logging purposes only - this will never happen in this case.
-            var register = new ByteRegister(null, resetValue, softResettable);
+            var register = new ByteRegister(null, resetValue, softResettable, name);
             register.DefineValueField(0, register.RegisterWidth);
             return register;
         }
 
-        public ByteRegister(IPeripheral parent, ulong resetValue = 0, bool softResettable = true) : base(parent, resetValue, softResettable, ByteWidth)
+        public ByteRegister(IPeripheral parent, ulong resetValue = 0, bool softResettable = true, String name = null) : base(parent, resetValue, softResettable, ByteWidth, name)
         {
         }
 
@@ -621,11 +623,12 @@ namespace Antmicro.Renode.Core.Structure.Registers
 
         public int RegisterWidth { get; }
 
-        protected PeripheralRegister(IPeripheral parent, ulong resetValue, bool softResettable, int width)
+        protected PeripheralRegister(IPeripheral parent, ulong resetValue, bool softResettable, int width, String name = null)
         {
             this.parent = parent;
             RegisterWidth = width;
             this.resetValue = resetValue;
+            this.name = name;
             // We want to reset the register before setting the resettableMask. If we don't do that then
             // the register will not be initialized to the resetValue, instead it will hold the default value of 0
             Reset();
@@ -677,6 +680,11 @@ namespace Antmicro.Renode.Core.Structure.Registers
             if(changedFields.Any())
             {
                 CallChangeHandlers(baseValue, UnderlyingValue);
+            }
+
+            if(tags.Count > 0)
+            {
+                parent.Log(LogLevel.Warning, ReadTagLogger());
             }
 
             return valueToRead;
@@ -802,6 +810,22 @@ namespace Antmicro.Renode.Core.Structure.Registers
 
         protected ulong UnderlyingValue;
 
+        private string GetCurrentSymbol()
+        {
+            string currentSymbol = null;
+            IMachine machine;
+            if(parent.TryGetMachine(out machine))
+            {
+                ICPU cpu;
+                if(machine.SystemBus.TryGetCurrentCPU(out cpu))
+                {
+                    var pc = cpu.PC;
+                    currentSymbol = machine.SystemBus.FindSymbolAt(pc, cpu);
+                }
+            }
+            return currentSymbol;
+        }
+
         /// <summary>
         /// Returns information about tag writes. Extracted as a method to allow future lazy evaluation.
         /// </summary>
@@ -810,14 +834,24 @@ namespace Antmicro.Renode.Core.Structure.Registers
         /// <param name="originalValue">The whole value written to the register.</param>
         private string TagLogger(long offset, ulong unhandledMask, ulong originalValue)
         {
+            var relatedSymbol = GetCurrentSymbol();
             var tagsAffected = tags.Where(x => BitHelper.AreAnyBitsSet(unhandledMask, x.Position, x.Width))
                 .Select(x =>  new { x.Name, Value = BitHelper.GetValue(originalValue, x.Position, x.Width) });
-            return "Unhandled write to offset 0x{2:X}. Unhandled bits: [{1}] when writing value 0x{3:X}.{0}"
+            return "Unhandled write to offset 0x{2:X} {4}. Unhandled bits: [{1}] when writing value 0x{3:X}.{0}{5}"
                 .FormatWith(tagsAffected.Any() ? " Tags: {0}.".FormatWith(
                     tagsAffected.Select(x => "{0} (0x{1:X})".FormatWith(x.Name, x.Value)).Stringify(", ")) : String.Empty,
                     BitHelper.GetSetBitsPretty(unhandledMask),
                     offset,
-                    originalValue);
+                    originalValue,
+                    name,
+                    relatedSymbol != null ? " Related symbol: {0}".FormatWith(relatedSymbol) : string.Empty);
+        }
+
+        private string ReadTagLogger()
+        {
+            var relatedSymbol = GetCurrentSymbol();
+            return "Read from register with unhandled bits.{0}{1}"
+                .FormatWith(name != null ? " Register name: {0}.".FormatWith(name) : String.Empty, relatedSymbol != null ? " Related symbol: {0}".FormatWith(relatedSymbol) : string.Empty);
         }
 
         private bool InvalidTagValues(long offset, ulong originalValue, out string log)
@@ -918,5 +952,7 @@ namespace Antmicro.Renode.Core.Structure.Registers
 
         private readonly IPeripheral parent;
         private readonly ulong resetValue;
+
+        private readonly String name;
     }
 }
