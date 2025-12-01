@@ -108,7 +108,7 @@ namespace Antmicro.Renode.Peripherals.CPU
             hooks[addr].Add(hook);
         }
 
-        public void RemoveHook(ulong addr, Action<ICpuSupportingGdb, ulong> hook)
+        public void RemoveHook(ulong addr, Action<ICpuSupportingGdb, ulong> hook, bool ignoreNotPresent = false)
         {
             if(!hooks.ContainsKey(addr))
             {

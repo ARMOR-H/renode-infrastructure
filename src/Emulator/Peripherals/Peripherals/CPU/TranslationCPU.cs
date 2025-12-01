@@ -309,14 +309,17 @@ namespace Antmicro.Renode.Peripherals.CPU
             }
         }
 
-        public void RemoveHook(ulong addr, Action<ICpuSupportingGdb, ulong> hook)
+        public void RemoveHook(ulong addr, Action<ICpuSupportingGdb, ulong> hook, bool ignoreNotPresent = false)
         {
             lock(hooks)
             {
                 HookDescriptor descriptor;
                 if(!hooks.TryGetValue(addr, out descriptor) || !descriptor.RemoveCallback(hook))
                 {
-                    this.Log(LogLevel.Warning, "Tried to remove not existing hook from address 0x{0:x}", addr);
+                    if(!ignoreNotPresent)
+                    {
+                        this.Log(LogLevel.Warning, "Tried to remove not existing hook from address 0x{0:x}", addr);
+                    }
                     return;
                 }
                 if(descriptor.IsEmpty)
