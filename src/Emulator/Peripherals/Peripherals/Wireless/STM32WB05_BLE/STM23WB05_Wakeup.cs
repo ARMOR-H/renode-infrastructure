@@ -1,5 +1,6 @@
 using Antmicro.Renode.Core;
 using Antmicro.Renode.Core.Structure.Registers;
+using Antmicro.Renode.Peripherals.Timers;
 
 namespace Antmicro.Renode.Peripherals.Wireless
 {
@@ -7,13 +8,14 @@ namespace Antmicro.Renode.Peripherals.Wireless
     {
         public STM32WB05_Wakeup(IMachine machine) : base(machine)
         {
+            timer = new LimitTimer(machine.ClockSource, 32_000, this, "AbsoluteTime", uint.MaxValue, Time.Direction.Ascending, enabled: true, autoUpdate: true);
             DefineRegisters();
             Reset();
         }
 
         public override void Reset()
         {
-            time = 0;
+            timer.Reset();
             base.Reset();
         }
 
@@ -26,10 +28,7 @@ namespace Antmicro.Renode.Peripherals.Wireless
                 .WithReservedBits(8, 24);
 
             Registers.AbsoluteTime.Define(this)
-                .WithValueField(0, 32, FieldMode.Read, name: "ABSOLUTE_TIME", valueProviderCallback: (_) =>
-                {
-                    return time++;
-                });
+                .WithValueField(0, 32, FieldMode.Read, name: "ABSOLUTE_TIME", valueProviderCallback: (_) => timer.Value);
 
             Registers.MinimumPeriodLength.Define(this).WithReservedBits(0, 32);
             Registers.AveragePeriodLength.Define(this).WithReservedBits(0, 32);
@@ -45,7 +44,7 @@ namespace Antmicro.Renode.Peripherals.Wireless
             Registers.CM0InterruptStatus.Define(this).WithReservedBits(0, 32);
         }
 
-        private ulong time;
+        private readonly LimitTimer timer;
 
         private enum Registers
         {
