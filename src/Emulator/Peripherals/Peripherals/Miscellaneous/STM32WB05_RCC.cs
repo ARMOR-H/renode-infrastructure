@@ -27,20 +27,20 @@ namespace Antmicro.Renode.Peripherals.Miscellaneous
         {
             Registers.ClockSourceControl.Define(this, 0x00001400)
                 .WithReservedBits(0, 2)
-                .WithTaggedFlag("LSION", 2)
-                .WithTaggedFlag("LSIRDY", 3)
-                .WithTaggedFlag("LSEON", 4)
-                .WithTaggedFlag("LSERDY", 5)
-                .WithTaggedFlag("LSEBYP", 6)
+                .WithFlag(2, out lsiOn, name: "LSION")
+                .WithFlag(3, name: "LSIRDY", mode: FieldMode.Read, valueProviderCallback: (_) => { return lsiOn.Value; })
+                .WithFlag(4, out lseOn, name: "LSEON")
+                .WithFlag(5, name: "LSERDY", mode: FieldMode.Read, valueProviderCallback: (_) => { return lseOn.Value; })
+                .WithFlag(6, name: "LSEBYP")
                 .WithTag("LOCKDET_NSTOP", 7, 3)
                 .WithFlag(10, name: "HSIRDY", mode: FieldMode.Read, valueProviderCallback: (_) => { return true; })
                 .WithReservedBits(11, 1)
-                .WithTaggedFlag("HSEPLLBUFON", 12)
-                .WithTaggedFlag("HSIPLLON", 13)
-                .WithFlag(14, name: "HSIPLLRDY", mode: FieldMode.Read, valueProviderCallback: (_) => { return true; })
+                .WithFlag(12, name: "HSEPLLBUFON")
+                .WithFlag(13, out hsiPllOn, name: "HSIPLLON")
+                .WithFlag(14, name: "HSIPLLRDY", mode: FieldMode.Read, valueProviderCallback: (_) => { return hsiPllOn.Value; })
                 .WithReservedBits(15, 1)
-                .WithTaggedFlag("HSEON", 16)
-                .WithFlag(17, name: "HSERDY", mode: FieldMode.Read, valueProviderCallback: (_) => { return true; })
+                .WithFlag(16, out hseOn, name: "HSEON")
+                .WithFlag(17, name: "HSERDY", mode: FieldMode.Read, valueProviderCallback: (_) => { return hseOn.Value; })
                 .WithReservedBits(18, 14);
             Registers.ClockConfiguration.Define(this).WithReservedBits(0, 32);
 
@@ -70,6 +70,11 @@ namespace Antmicro.Renode.Peripherals.Miscellaneous
             Registers.RfSoftwareHighSpeedExternal.Define(this).WithReservedBits(0, 32);
             Registers.RfHighSpeedExternal.Define(this).WithReservedBits(0, 32);
         }
+
+        private IFlagRegisterField lsiOn;
+        private IFlagRegisterField lseOn;
+        private IFlagRegisterField hseOn;
+        private IFlagRegisterField hsiPllOn;
 
         private enum Registers
         {

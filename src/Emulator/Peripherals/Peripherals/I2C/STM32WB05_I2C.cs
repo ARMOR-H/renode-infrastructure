@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 
 using Antmicro.Renode.Core;
 using Antmicro.Renode.Core.Structure;
@@ -12,26 +11,22 @@ using Antmicro.Renode.Peripherals.CPU;
 namespace Antmicro.Renode.Peripherals.I2C
 {
     [AllowedTranslations(AllowedTranslation.WordToDoubleWord)]
-    public sealed class STM32WB05_I2C : SimpleContainer<II2CPeripheral>, IDoubleWordPeripheral, IBytePeripheral, IKnownSize
+    public sealed class STM32WB05_I2C : SimpleContainer<II2CPeripheral>, IDoubleWordPeripheral, IBytePeripheral, IKnownSize, IInterceptable
     {
         public STM32WB05_I2C(IMachine machine) : base(machine)
         {
             IRQ = new GPIO();
             CreateRegisters();
 
-            Action<IMachine> configureSymbolsHooksWrapper = (IMachine localMachine) => ConfigureHooks(localMachine);
-
-            machine.SystemBus.OnSymbolsChanged += configureSymbolsHooksWrapper;
-            hooks = new Dictionary<string, Action<ICpuSupportingGdb, ulong>>()
+            this.ConfigureIntercepts(machine, new Dictionary<string, Action<ICPUWithHooks, ulong>>()
             {
                 {"HAL_I2C_Init", ReturnHALOk("HAL_I2C_Init") },
                 {"HAL_I2CEx_ConfigAnalogFilter", ReturnHALOk("HAL_I2CEx_ConfigAnalogFilter") },
                 {"HAL_I2CEx_ConfigDigitalFilter", ReturnHALOk("HAL_I2CEx_ConfigDigitalFilter") },
                 {"HAL_I2C_Mem_Write", (cpu, addr) => MemWriteHook(cpu, addr) },
                 {"HAL_I2C_Mem_Read", (cpu, addr) => MemReadHook(cpu, addr) },
-                {"HAL_I2C_IsDeviceReady", (cpu, addr) => IsDeviceReadyHook(cpu, addr) },
-            };
-
+                {"HAL_I2C_IsDeviceReady", (cpu, addr) => IsDeviceReadyHook(cpu, addr) }
+            });
             Reset();
         }
 
@@ -64,6 +59,17 @@ namespace Antmicro.Renode.Peripherals.I2C
         public GPIO IRQ { get; private set; }
 
         public long Size => 0x400;
+
+        public bool Intercept
+        {
+            get => intercept; set
+            {
+                intercept = value;
+                InterceptChanged?.Invoke(value);
+            }
+        }
+
+        public event Action<bool> InterceptChanged;
 
         private void CreateRegisters()
         {
@@ -160,33 +166,7 @@ namespace Antmicro.Renode.Peripherals.I2C
                 .WithReservedBits(8, 24);
         }
 
-        private void ConfigureHooks(IMachine machine)
-        {
-            ICPUWithHooks cpu = (ICPUWithHooks)machine.SystemBus.GetCPUs().First();
-
-            foreach(var hook in hooks)
-            {
-                ConfigureHook(machine, cpu, hook.Key, hook.Value);
-            }
-        }
-
-        private void ConfigureHook(IMachine machine, ICPUWithHooks cpu, string hookName, Action<ICpuSupportingGdb, ulong> action)
-        {
-            bool foundAddresses = ((SystemBus)machine.SystemBus).TryGetAllSymbolAddresses(hookName, out var addresses);
-            if(!foundAddresses)
-            {
-                return;
-            }
-
-            this.NoisyLog("Trying to {0} hook on: {1}, number of hooks: {2}", "add", hookName, addresses.Count());
-
-            foreach(var address in addresses)
-            {
-                cpu.AddHook(address, action);
-            }
-        }
-
-        private Action<ICpuSupportingGdb, ulong> ReturnHALOk(string hookName)
+        private Action<ICPUWithHooks, ulong> ReturnHALOk(string hookName)
         {
             return (cpu, addr) =>
             {
@@ -198,7 +178,7 @@ namespace Antmicro.Renode.Peripherals.I2C
             };
         }
 
-        private void MemWriteHook(ICpuSupportingGdb cpu, ulong addr)
+        private void MemWriteHook(ICPUWithHooks cpu, ulong addr)
         {
             var mcpu = (CortexM) cpu;
             mcpu.PC = mcpu.LR;
@@ -235,7 +215,7 @@ namespace Antmicro.Renode.Peripherals.I2C
             }
         }
 
-        private void MemReadHook(ICpuSupportingGdb cpu, ulong addr)
+        private void MemReadHook(ICPUWithHooks cpu, ulong addr)
         {
             var mcpu = (CortexM) cpu;
             mcpu.PC = mcpu.LR;
@@ -273,7 +253,7 @@ namespace Antmicro.Renode.Peripherals.I2C
             }
         }
 
-        private void IsDeviceReadyHook(ICpuSupportingGdb cpu, ulong addr)
+        private void IsDeviceReadyHook(ICPUWithHooks cpu, ulong addr)
         {
             var mcpu = (CortexM) cpu;
             mcpu.PC = mcpu.LR;
@@ -284,9 +264,9 @@ namespace Antmicro.Renode.Peripherals.I2C
             this.NoisyLog("IsDeviceReadyHook");
         }
 
-        private DoubleWordRegisterCollection registers;
+        private bool intercept;
 
-        private readonly Dictionary<String, Action<ICpuSupportingGdb, ulong>> hooks;
+        private DoubleWordRegisterCollection registers;
 
         private enum Registers
         {

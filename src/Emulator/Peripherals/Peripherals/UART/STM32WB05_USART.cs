@@ -11,31 +11,21 @@ using Antmicro.Renode.Peripherals.CPU;
 namespace Antmicro.Renode.Peripherals.UART
 {
     [AllowedTranslations(AllowedTranslation.ByteToDoubleWord | AllowedTranslation.WordToDoubleWord)]
-    public sealed class STM32WB05_USART : UARTBase, IDoubleWordPeripheral, IKnownSize
+    public sealed class STM32WB05_USART : UARTBase, IDoubleWordPeripheral, IKnownSize, IInterceptable
     {
-        public STM32WB05_USART(IMachine machine, bool intercept = false) : base(machine)
+        public STM32WB05_USART(IMachine machine) : base(machine)
         {
             this.machine = machine;
             RegistersCollection = new DoubleWordRegisterCollection(this);
             DefineRegisters();
 
-            Action<IMachine> configureSymbolsHooksWrapper = (IMachine localMachine) => ConfigureHooks(localMachine);
-            if(intercept)
-            {
-                this.InfoLog("Configuring hooks for STM32WB05_USART");
-                machine.SystemBus.OnSymbolsChanged += configureSymbolsHooksWrapper;
-            }
-            else
-            {
-                this.InfoLog("Hooks for STM32WB05_USART not configured");
-            }
-
-            hooks = new Dictionary<string, Action<ICpuSupportingGdb, ulong>>()
+            this.ConfigureIntercepts(machine, new Dictionary<string, Action<ICPUWithHooks, ulong>>()
             {
                 {"HAL_UART_GetState", GetStateHook},
-                {"HAL_UART_Transmit_DMA", TransmitDmaHook},
+                {"HAL_UART_Transmit_DMA", TransmitHook},
+                {"HAL_UART_Transmit", TransmitHook},
                 {"HAL_UART_Receive_DMA", ReceiveDmaHook},
-            };
+            });
         }
 
         public override void Reset()
@@ -68,6 +58,16 @@ namespace Antmicro.Renode.Peripherals.UART
 
         public DoubleWordRegisterCollection RegistersCollection { get; }
 
+        public bool Intercept
+        {
+            get => intercept; set
+            {
+                intercept = value;
+                InterceptChanged?.Invoke(value);
+            }
+        }
+
+        public event Action<bool> InterceptChanged;
 
         protected override void CharWritten()
         {
@@ -241,33 +241,7 @@ namespace Antmicro.Renode.Peripherals.UART
                 .WithReservedBits(4, 28);
         }
 
-        private void ConfigureHooks(IMachine machine)
-        {
-            ICPUWithHooks cpu = (ICPUWithHooks)machine.SystemBus.GetCPUs().First();
-
-            foreach(var hook in hooks)
-            {
-                ConfigureHook(machine, cpu, hook.Key, hook.Value);
-            }
-        }
-
-        private void ConfigureHook(IMachine machine, ICPUWithHooks cpu, string hookName, Action<ICpuSupportingGdb, ulong> action)
-        {
-            bool foundAddresses = ((SystemBus)machine.SystemBus).TryGetAllSymbolAddresses(hookName, out var addresses);
-            if(!foundAddresses)
-            {
-                return;
-            }
-
-            this.NoisyLog("Trying to {0} hook on: {1}, number of hooks: {2}", "add", hookName, addresses.Count());
-
-            foreach(var address in addresses)
-            {
-                cpu.AddHook(address, action);
-            }
-        }
-
-        private void GetStateHook(ICpuSupportingGdb cpu, ulong address)
+        private void GetStateHook(ICPUWithHooks cpu, ulong address)
         {
             this.NoisyLog("HAL_UART_GetState called at 0x{0:X}", address);
 
@@ -284,9 +258,9 @@ namespace Antmicro.Renode.Peripherals.UART
             }
         }
 
-        private void TransmitDmaHook(ICpuSupportingGdb cpu, ulong address)
+        private void TransmitHook(ICPUWithHooks cpu, ulong address)
         {
-            this.NoisyLog("HAL_UART_Transmit_DMA called at 0x{0:X}", address);
+            this.NoisyLog("HAL_UART_Transmit_* called at 0x{0:X}", address);
 
             var mcpu = (CortexM) cpu;
             mcpu.PC = mcpu.LR;
@@ -303,7 +277,7 @@ namespace Antmicro.Renode.Peripherals.UART
             }
         }
 
-        private void ReceiveDmaHook(ICpuSupportingGdb cpu, ulong address)
+        private void ReceiveDmaHook(ICPUWithHooks cpu, ulong address)
         {
             this.NoisyLog("HAL_UART_Receive_DMA called at 0x{0:X}", address);
 
@@ -347,14 +321,14 @@ namespace Antmicro.Renode.Peripherals.UART
             }
         }
 
+        private bool intercept;
+
         private bool pendingRead = false;
         private int readIndex = 0;
         private byte[] readBuffer;
         private ulong readToAddress;
 
         private readonly IMachine machine;
-
-        private readonly Dictionary<String, Action<ICpuSupportingGdb, ulong>> hooks;
 
         private enum Registers
         {
