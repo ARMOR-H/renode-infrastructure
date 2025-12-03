@@ -51,7 +51,6 @@ namespace Antmicro.Renode.Utilities
                     values.Remove(ordering.Last.Value);
                     ordering.RemoveLast();
                 }
-                OnChanged?.Invoke();
             }
         }
 
