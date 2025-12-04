@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 
 using Antmicro.Renode.Core;
 using Antmicro.Renode.Logging;
@@ -9,27 +8,14 @@ using Antmicro.Renode.Peripherals.Sensor;
 using Antmicro.Renode.Utilities;
 
 using Antmicro.Renode.Peripherals.CPU;
-using Antmicro.Renode.Peripherals.Bus;
 
 namespace Antmicro.Renode.Peripherals.Sensors
 {
-    public class AS7341 : II2CPeripheral, IPhotodetector
+    public class AS7341 : II2CPeripheral, IPhotodetector, IInterceptable
     {
-        public AS7341(IMachine machine, bool intercept = false)
+        public AS7341(IMachine machine)
         {
-            Action<IMachine> configureSymbolsHooksWrapper = (IMachine localMachine) => ConfigureHooks(localMachine);
-
-            if(intercept)
-            {
-                this.InfoLog("Configuring hooks for AS7341");
-                machine.SystemBus.OnSymbolsChanged += configureSymbolsHooksWrapper;
-            }
-            else
-            {
-                this.InfoLog("Hooks for AS7341 not configured");
-            }
-
-            hooks = new Dictionary<string, Action<ICpuSupportingGdb, ulong>>()
+            this.ConfigureIntercepts(machine, new Dictionary<string, Action<ICPUWithHooks, ulong>>()
             {
                 { "PD_I2c_Init", CallVoidFunction(CommInit) },
                 { "PD_Power_On", CallVoidFunction(PowerOn) },
@@ -59,7 +45,7 @@ namespace Antmicro.Renode.Peripherals.Sensors
                 { "PD_enable_sleep_after_interrupt", CallVoidFunction(EnableSleepAfterInterrupt) },
                 { "PD_disable_sleep_after_interrupt", CallVoidFunction(DisableSleepAfterInterrupt) },
                 { "PD_clear_interrupts", CallVoidFunction(ClearInterrupts) },
-            };
+            });
         }
 
         public void Reset()
@@ -125,33 +111,19 @@ namespace Antmicro.Renode.Peripherals.Sensors
             set => lightLevel = value;
         }
 
-        private void ConfigureHooks(IMachine machine)
+        public bool Intercept
         {
-            ICPUWithHooks cpu = (ICPUWithHooks)machine.SystemBus.GetCPUs().First();
-
-            foreach(var hook in hooks)
+            get => intercept;
+            set
             {
-                ConfigureHook(machine, cpu, hook.Key, hook.Value);
+                intercept = value;
+                InterceptChanged?.Invoke(value);
             }
         }
 
-        private void ConfigureHook(IMachine machine, ICPUWithHooks cpu, string hookName, Action<ICpuSupportingGdb, ulong> action)
-        {
-            bool foundAddresses = ((SystemBus)machine.SystemBus).TryGetAllSymbolAddresses(hookName, out var addresses);
-            if(!foundAddresses)
-            {
-                return;
-            }
+        public event Action<bool> InterceptChanged;
 
-            this.NoisyLog("Trying to {0} hook on: {1}, number of hooks: {2}", "add", hookName, addresses.Count());
-
-            foreach(var address in addresses)
-            {
-                cpu.AddHook(address, action);
-            }
-        }
-
-        private Action<ICpuSupportingGdb, ulong> CallVoidFunction(Action function)
+        private Action<ICPUWithHooks, ulong> CallVoidFunction(Action function)
         {
             return (cpu, pc) =>
             {
@@ -162,7 +134,7 @@ namespace Antmicro.Renode.Peripherals.Sensors
             };
         }
 
-        private Action<ICpuSupportingGdb, ulong> CallBoolFunction(Func<bool> function)
+        private Action<ICPUWithHooks, ulong> CallBoolFunction(Func<bool> function)
         {
             return (cpu, pc) =>
             {
@@ -174,7 +146,7 @@ namespace Antmicro.Renode.Peripherals.Sensors
             };
         }
 
-        private Action<ICpuSupportingGdb, ulong> CallByteFunction(Func<Byte> function)
+        private Action<ICPUWithHooks, ulong> CallByteFunction(Func<Byte> function)
         {
             return (cpu, pc) =>
             {
@@ -186,7 +158,7 @@ namespace Antmicro.Renode.Peripherals.Sensors
             };
         }
 
-        private Action<ICpuSupportingGdb, ulong> CallUShortFunction(Func<UInt16> function)
+        private Action<ICPUWithHooks, ulong> CallUShortFunction(Func<UInt16> function)
         {
             return (cpu, pc) =>
             {
@@ -198,7 +170,7 @@ namespace Antmicro.Renode.Peripherals.Sensors
             };
         }
 
-        private Action<ICpuSupportingGdb, ulong> CallVoidFunctionWithUShortArg(Action<UInt16> function)
+        private Action<ICPUWithHooks, ulong> CallVoidFunctionWithUShortArg(Action<UInt16> function)
         {
             return (cpu, pc) =>
             {
@@ -446,7 +418,7 @@ namespace Antmicro.Renode.Peripherals.Sensors
         private decimal lightLevel;
         private UInt16 readValue = 0;
 
-        private readonly Dictionary<String, Action<ICpuSupportingGdb, ulong>> hooks;
+        private bool intercept;
 
         private enum Registers
         {
