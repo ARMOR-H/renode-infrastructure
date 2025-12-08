@@ -23,7 +23,13 @@ namespace Antmicro.Renode.Peripherals.MTD
         private void DefineRegisters()
         {
             Registers.Command.Define(this).WithReservedBits(0, 32);
-            Registers.Config.Define(this).WithReservedBits(0, 32);
+            Registers.Config.Define(this)
+                .WithReservedBits(0, 0)
+                .WithTaggedFlag("REMAP", 1)
+                .WithTaggedFlag("DIS_GROUP_WRITE", 2)
+                .WithReservedBits(3, 1)
+                .WithValueField(4, 2, name: "WAIT_STATES")
+                .WithReservedBits(6, 26);
             Registers.InterruptStatus.Define(this).WithReservedBits(0, 32);
             Registers.InterruptMask.Define(this).WithReservedBits(0, 32);
             Registers.RawInterruptStatus.Define(this).WithReservedBits(0, 32);

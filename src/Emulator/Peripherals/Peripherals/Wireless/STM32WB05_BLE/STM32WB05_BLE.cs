@@ -48,7 +48,7 @@ namespace Antmicro.Renode.Peripherals.Wireless
             }
         }
 
-        public bool IsPaused => throw new NotImplementedException();
+        public bool IsPaused => false;
 
         public event Action<bool> InterceptChanged;
 
