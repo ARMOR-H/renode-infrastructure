@@ -17,6 +17,18 @@ namespace Antmicro.Renode.Hooks
             sysbus.ApplyAtSymbol(symbol, (cpu, addr) => cpu.RemoveHook(addr, hook, true));
         }
 
+        private static readonly Action<ICPUWithHooks, ulong> pauseHook = (cpu, addr) => cpu.Bus.Machine.PauseAndRequestEmulationPause();
+
+        public static void AddPauseHookAtSymbol(this IBusController sysbus, string symbol)
+        {
+            AddHookAtSymbol(sysbus, symbol, pauseHook);
+        }
+
+        public static void RemovePauseHookAtSymbol(this IBusController sysbus, string symbol)
+        {
+            RemoveHookAtSymbol(sysbus, symbol, pauseHook);
+        }
+
         public static void ApplyAtSymbol(this IBusController sysbus, string symbol, Action<ICPUWithHooks, ulong> action)
         {
             if(sysbus.TryGetAllSymbolAddresses(symbol, out var symbolAddresses))
