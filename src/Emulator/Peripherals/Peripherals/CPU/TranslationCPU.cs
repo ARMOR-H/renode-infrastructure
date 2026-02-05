@@ -145,7 +145,7 @@ namespace Antmicro.Renode.Peripherals.CPU
             return TlibGetTotalExecutedInstructions();
         }
 
-        public void LogFunctionNames(bool value, string spaceSeparatedPrefixes = "", bool removeDuplicates = false, bool useFunctionSymbolsOnly = true)
+        public void LogFunctionNames(bool value, string spaceSeparatedPrefixes = "", bool removeDuplicates = false, bool useFunctionSymbolsOnly = true, bool log = true)
         {
             if(!value)
             {
@@ -175,7 +175,16 @@ namespace Antmicro.Renode.Peripherals.CPU
                     return;
                 }
                 messageBuilder.Clear();
-                this.Log(LogLevel.Info, messageBuilder.Append("Entering function ").Append(name ?? "without name").Append(" at 0x").Append(pc.ToString("X")).ToString());
+
+                if(symbol != null)
+                {
+                    this.OnFunctionCall?.Invoke(Tuple.Create(pc, symbol));
+                }
+
+                if(log)
+                {
+                    this.Log(LogLevel.Info, messageBuilder.Append("Entering function ").Append(name ?? "without name").Append(" at 0x").Append(pc.ToString("X")).ToString());
+                }
             });
         }
 
@@ -1056,6 +1065,8 @@ namespace Antmicro.Renode.Peripherals.CPU
         public abstract List<GDBFeatureDescriptor> GDBFeatures { get; }
 
         public abstract string GDBArchitecture { get; }
+
+        public event Action<Tuple<ulong, Symbol>> OnFunctionCall;
 
         protected TranslationCPU(string cpuType, IMachine machine, Endianess endianness, CpuBitness bitness = CpuBitness.Bits32)
         : this(0, cpuType, machine, endianness, bitness)
