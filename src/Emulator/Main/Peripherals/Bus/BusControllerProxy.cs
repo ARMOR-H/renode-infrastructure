@@ -536,5 +536,18 @@ namespace Antmicro.Renode.Peripherals.Bus
                 ParentController.OnSymbolsChanged -= value;
             }
         }
+
+        event Action<UnhandledAccess> IBusController.OnUnhandledAccess
+        {
+            add
+            {
+                ParentController.OnUnhandledAccess += value;
+            }
+
+            remove
+            {
+                ParentController.OnUnhandledAccess -= value;
+            }
+        }
     }
 }
