@@ -1438,7 +1438,7 @@ namespace Antmicro.Renode.Peripherals.Bus
 
         private void ReportUnhandledAccess(Access access)
         {
-            if(!TryGetCurrentCPU(out var cpu))
+            if(TryGetCurrentCPU(out var cpu))
             {
                 UnhandledAccess report;
 
