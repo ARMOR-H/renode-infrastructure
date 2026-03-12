@@ -252,6 +252,7 @@ namespace Antmicro.Renode.Core
             var elfSymbols = filteredSymtab
                                 .Select(x => new Symbol(x.OffsetBy(offset), thumb));
             var elfFunctionSymbols = filteredSymtab.Where(x => x.PointedSection != null && (x.PointedSection.Flags & SectionFlags.Executable) == SectionFlags.Executable)
+                                        .Where(x => x.Type == SymbolType.Function)
                                         .Where(x => x.PointedSectionIndex != (uint)SpecialSectionIndex.Absolute)
                                         .Select(x => new Symbol(x.OffsetBy(offset), thumb));
             InsertSymbols(elfSymbols);
