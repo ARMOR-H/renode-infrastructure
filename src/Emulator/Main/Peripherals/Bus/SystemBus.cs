@@ -1442,7 +1442,7 @@ namespace Antmicro.Renode.Peripherals.Bus
             {
                 UnhandledAccess report;
 
-                if(TryFindSymbolAt(cpu.PC.RawValue, out var symbolName, out var symbol, cpu))
+                if(TryFindSymbolAt(cpu.PC.RawValue, out var symbolName, out var symbol, cpu, true))
                 {
                     report = new UnhandledAccess(cpu, cpu.PC.RawValue, symbol, access, address, width, value);
                 }
