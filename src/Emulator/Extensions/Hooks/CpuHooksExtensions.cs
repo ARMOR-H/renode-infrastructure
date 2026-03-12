@@ -13,9 +13,9 @@ namespace Antmicro.Renode.Hooks
 {
     public static class CpuHooksExtensions
     {
-        public static void AddHook(this ICPUWithHooks cpu, [AutoParameter] Machine m, ulong addr, string pythonScript)
+        public static void AddHook(this ICPUWithHooks cpu, [AutoParameter] Machine m, ulong addr, string pythonScript, string scopeKey = null)
         {
-            var engine = new BlockPythonEngine(m, cpu, pythonScript);
+            var engine = new BlockPythonEngine(m, cpu, pythonScript, scopeKey);
             cpu.AddHook(addr, engine.Hook);
         }
 

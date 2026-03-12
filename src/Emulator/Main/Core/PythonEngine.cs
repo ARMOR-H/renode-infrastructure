@@ -27,18 +27,25 @@ namespace Antmicro.Renode.Core
         #region Python Engine
 
         private static readonly ScriptEngine _Engine = Python.CreateEngine();
+        private static readonly Dictionary<string, ScriptScope> _Scopes = new Dictionary<string, ScriptScope>();
 
         #endregion
 
         #region Helper methods
+
+        public static void ClearScopes()
+        {
+            PythonEngine._Scopes.Clear();
+        }
 
         protected static string Aggregate(string[] array)
         {
             return array.Aggregate((prev, curr) => string.Format("{0}{1}{2}", prev, Environment.NewLine, curr));
         }
 
-        protected PythonEngine()
+        protected PythonEngine(string scopeKey = null)
         {
+            this.scopeKey = scopeKey;
             InnerInit();
         }
 
@@ -115,7 +122,19 @@ namespace Antmicro.Renode.Core
 
         private void InnerInit()
         {
-            Scope = Engine.CreateScope();
+            if(scopeKey != null)
+            {
+                if(!PythonEngine._Scopes.TryGetValue(scopeKey, out Scope))
+                {
+                    Scope = Engine.CreateScope();
+                    PythonEngine._Scopes.Add(scopeKey, Scope);
+                }
+            }
+            else
+            {
+                Scope = Engine.CreateScope();
+            }
+
             Scope.SetVariable("emulationManager", EmulationManager.Instance);
             Scope.SetVariable("pythonEngine", Engine);
             // `Monitor` is located in a different project, so we cannot reference the class directly
@@ -170,6 +189,8 @@ namespace Antmicro.Renode.Core
         }
 
         private Dictionary<string, object> variables;
+
+        private readonly string scopeKey;
 
         private readonly string[] Imports =
         {

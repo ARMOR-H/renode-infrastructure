@@ -68,6 +68,8 @@ namespace Antmicro.Renode.Core
             theBag = new Dictionary<string, object>();
             SnapshotTracker = new SnapshotTracker();
             AutoSnapshotCreator = new AutoSnapshotCreator();
+
+            PythonEngine.ClearScopes();
         }
 
         public IDisposable ObtainSafeState()

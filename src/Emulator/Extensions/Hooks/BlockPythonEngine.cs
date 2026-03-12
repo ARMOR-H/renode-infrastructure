@@ -19,7 +19,7 @@ namespace Antmicro.Renode.Hooks
 {
     public sealed class BlockPythonEngine : PythonEngine
     {
-        public BlockPythonEngine(IMachine mach, ICPUWithHooks cpu, string script)
+        public BlockPythonEngine(IMachine mach, ICPUWithHooks cpu, string script, string scopeKey = null) : base(scopeKey)
         {
             Script = script;
             CPU = cpu;

@@ -7,11 +7,11 @@ namespace Antmicro.Renode.Hooks
 {
     public static class SymbolHookExtensions
     {
-        public static void AddHookAtSymbol(this IBusController sysbus, string symbol, string pythonScript)
+        public static void AddHookAtSymbol(this IBusController sysbus, string symbol, string pythonScript, string scopeKey = null)
         {
             ApplyAtSymbol(sysbus, symbol, (cpu, addr) =>
             {
-                var engine = new BlockPythonEngine(sysbus.Machine, cpu, pythonScript);
+                var engine = new BlockPythonEngine(sysbus.Machine, cpu, pythonScript, scopeKey);
                 cpu.AddHook(addr, engine.Hook);
             });
         }
