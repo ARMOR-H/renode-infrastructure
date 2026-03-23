@@ -6,5 +6,6 @@
   <ArPath Condition=" '$(ArPath)' == '' ">/usr/bin/ar</ArPath>
   <CurrentPlatform>Linux</CurrentPlatform>
   <DefineConstants>$(DefineConstants);PLATFORM_LINUX</DefineConstants>
+  <InvariantGlobalization>true</InvariantGlobalization>
 </PropertyGroup>
 </Project>
